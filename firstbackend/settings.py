@@ -30,7 +30,11 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-8z$b1tq1s-@2s#c#lh2x$he7l0
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['shreshtagro.com', 'shreshtagro.com.onrender.com']
+ALLOWED_HOSTS = ['shreshta-backend-final.onrender.com',
+    'shreshtagro.com',
+    'www.shreshtagro.com',
+    'localhost',
+    '127.0.0.1']
 
 
 # Application definition
