@@ -382,7 +382,7 @@ def calculate_shipping_view(request):
 
 
 # Razorpay Integration
-@api_view(['POST'])
+@api_view(['OPTIONS', 'POST'])
 def create_razorpay_order_view(request):
     """
     Create a Razorpay order
@@ -391,24 +391,52 @@ def create_razorpay_order_view(request):
         "amount": 793.00  # in rupees
     }
     """
+    # Handle CORS preflight requests
+    if request.method == 'OPTIONS':
+        return Response(status=status.HTTP_200_OK)
+    
     try:
         amount = request.data.get('amount')
         
         if not amount:
             return Response({'error': 'Amount is required'}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Check if amount is NaN or invalid
+        if str(amount).lower() in ['nan', 'undefined', 'null', '']:
+            return Response({'error': 'Invalid amount: amount cannot be NaN or undefined'}, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
             amount_float = float(amount)
+            # Check for NaN or Infinity
+            if not (amount_float > 0 and amount_float < float('inf')):
+                return Response({'error': 'Invalid amount: amount must be a valid positive number'}, status=status.HTTP_400_BAD_REQUEST)
+            
             if amount_float <= 0:
                 return Response({'error': 'Amount must be greater than 0'}, status=status.HTTP_400_BAD_REQUEST)
-        except (ValueError, TypeError):
-            return Response({'error': 'Invalid amount format'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Razorpay minimum amount is 1 rupee (100 paise)
+            if amount_float < 1:
+                return Response({'error': 'Amount must be at least ₹1.00'}, status=status.HTTP_400_BAD_REQUEST)
+                
+        except (ValueError, TypeError) as e:
+            return Response({'error': f'Invalid amount format: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Convert to paise (Razorpay requires amount in smallest currency unit)
-        amount_paise = int(amount_float * 100)
+        amount_paise = int(round(amount_float * 100))
+        
+        # Validate paise amount
+        if amount_paise < 100:
+            return Response({'error': 'Amount must be at least ₹1.00 (100 paise)'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate Razorpay credentials
+        if not settings.RAZORPAY_KEY_ID or not settings.RAZORPAY_KEY_SECRET:
+            return Response({'error': 'Razorpay credentials not configured'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         # Initialize Razorpay client
-        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+        try:
+            client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+        except Exception as e:
+            return Response({'error': f'Failed to initialize Razorpay client: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         # Create order
         order_data = {
@@ -417,7 +445,28 @@ def create_razorpay_order_view(request):
             'payment_capture': 1  # Auto-capture payment
         }
         
-        order = client.order.create(order_data)
+        print(f"Creating Razorpay order with data: {order_data}")
+        
+        try:
+            order = client.order.create(order_data)
+            print(f"Razorpay order created successfully: {order.get('id')}")
+        except razorpay.errors.BadRequestError as e:
+            error_msg = str(e)
+            print(f"Razorpay BadRequest error: {error_msg}")
+            # Try to extract more details from the error
+            if hasattr(e, 'error'):
+                error_details = e.error
+                print(f"Razorpay error details: {error_details}")
+            return Response({
+                'error': 'Razorpay payment error',
+                'details': error_msg,
+                'amount_sent': amount_float,
+                'amount_paise': amount_paise
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except razorpay.errors.ServerError as e:
+            error_msg = str(e)
+            print(f"Razorpay ServerError: {error_msg}")
+            return Response({'error': 'Razorpay server error. Please try again later.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         
         return Response({
             'order_id': order['id'],
@@ -425,13 +474,11 @@ def create_razorpay_order_view(request):
             'key': settings.RAZORPAY_KEY_ID
         }, status=status.HTTP_200_OK)
         
-    except razorpay.errors.BadRequestError as e:
-        error_msg = str(e)
-        print(f"Razorpay BadRequest error: {error_msg}")
-        return Response({'error': f'Razorpay error: {error_msg}'}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         error_msg = f"Failed to create Razorpay order: {str(e)}"
         print(f"Razorpay order creation error: {error_msg}")
+        import traceback
+        traceback.print_exc()
         return Response({'error': error_msg}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
