@@ -30,11 +30,13 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-8z$b1tq1s-@2s#c#lh2x$he7l0
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['shreshta-backend-final.onrender.com',
+ALLOWED_HOSTS = [
+    'shreshta-backend-final.onrender.com',
     'shreshtagro.com',
     'www.shreshtagro.com',
     'localhost',
-    '127.0.0.1']
+    '127.0.0.1'
+]
 
 
 # Application definition
@@ -63,7 +65,25 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS Configuration
+CORS_ALLOWED_ORIGINS = [
+    "https://shreshtagro.com",
+    "https://www.shreshtagro.com"
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+# CSRF Configuration
+CSRF_TRUSTED_ORIGINS = [
+    "https://shreshtagro.com",
+    "https://www.shreshtagro.com",
+    "https://shreshta-backend-final.onrender.com"
+]
+
+# Cookie settings for secure cookies (HTTPS)
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
 ROOT_URLCONF = 'firstbackend.urls'
 
 TEMPLATES = [
