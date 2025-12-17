@@ -1670,11 +1670,15 @@ def coupons_view(request):
 
     # POST - create a new coupon
     code = (request.data.get('code') or '').strip().upper()
-    discount_percentage = request.data.get('discount_percentage')
+    # Accept both snake_case and camelCase
+    discount_percentage = request.data.get('discount_percentage') or request.data.get('discountPercentage')
     is_active = request.data.get('is_active', True)
 
     if not code:
         return Response({'error': 'Coupon code is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if discount_percentage is None:
+        return Response({'error': 'discount_percentage is required'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         discount_value = float(discount_percentage)
@@ -1732,7 +1736,8 @@ def coupon_detail_view(request, coupon_id):
 
     if request.method == 'PUT':
         code = request.data.get('code')
-        discount_percentage = request.data.get('discount_percentage')
+        # Accept both snake_case and camelCase
+        discount_percentage = request.data.get('discount_percentage') or request.data.get('discountPercentage')
         is_active = request.data.get('is_active')
 
         if code is not None:
