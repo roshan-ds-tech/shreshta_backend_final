@@ -1538,6 +1538,25 @@ def product_detail_view(request, product_id):
             'created_at': product.created_at.isoformat() if product.created_at else None,
         }
         
+        # Generate weight options based on product's weight_unit
+        weight_options = []
+        weight_unit = product.weight_unit or 'kg'
+        
+        if weight_unit == 'L':
+            # Liquid products: ['500mL', '1L']
+            weight_options = ['500mL', '1L']
+        elif weight_unit in ['kg', 'g']:
+            # Solid products: ['500g', '1kg', '2kg']
+            weight_options = ['500g', '1kg', '2kg']
+        else:
+            # Default to solid products if unit is not specified
+            weight_options = ['500g', '1kg', '2kg']
+        
+        product_data['weight_options'] = weight_options
+        
+        # Add PRODUCT_WEIGHT_SELECTION_ENABLED flag
+        product_data['weight_selection_enabled'] = getattr(settings, 'PRODUCT_WEIGHT_SELECTION_ENABLED', True)
+        
         # If weight selection is provided, calculate price
         selected_weight_value = request.query_params.get('weight_value')
         selected_weight_unit = request.query_params.get('weight_unit', 'kg')
