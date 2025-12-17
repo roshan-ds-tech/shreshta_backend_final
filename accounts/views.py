@@ -265,7 +265,7 @@ def get_shiprocket_token():
         return None, error_msg
 
 
-@api_view(['POST'])
+@api_view(['OPTIONS', 'POST'])
 def shipping_quote(request):
     """
     Get shipping quote from Shiprocket
@@ -277,6 +277,10 @@ def shipping_quote(request):
         "cod": false  # boolean
     }
     """
+    # Handle CORS preflight requests explicitly to avoid browser CORS/network errors
+    if request.method == 'OPTIONS':
+        return Response(status=status.HTTP_200_OK)
+
     try:
         weight = request.data.get('weight', 0.5)
         pickup_pincode = request.data.get('pickup_pincode', settings.SHIPROCKET_PICKUP_PINCODE)
@@ -1315,9 +1319,105 @@ def products_view(request):
         }, status=status.HTTP_201_CREATED)
 
 
-@api_view(['PUT', 'DELETE'])
+def calculate_price_for_weight(base_price_str, selected_weight_value, selected_weight_unit):
+    """
+    Calculate price for a selected weight based on base price.
+    
+    Args:
+        base_price_str: Base price string like "399/kg" or "₹399/kg"
+        selected_weight_value: Selected weight value (e.g., 0.5 for 500g)
+        selected_weight_unit: Selected weight unit ('kg', 'g', 'L')
+    
+    Returns:
+        dict with 'price', 'priceDisplay', 'weight_value', 'weight_unit'
+    """
+    try:
+        # Remove currency symbols and whitespace
+        price_clean = str(base_price_str).replace('₹', '').replace('Rs', '').replace('rs', '').strip()
+        
+        # Split by "/" to get price and base weight
+        parts = price_clean.split('/')
+        if len(parts) < 2:
+            # If no "/" found, assume price per kg
+            base_price = float(price_clean)
+            base_weight_value = 1.0
+            base_weight_unit = 'kg'
+        else:
+            base_price = float(parts[0].strip())
+            weight_part = parts[1].strip().lower()
+            
+            # Extract base weight value and unit
+            weight_match = re.search(r'([\d.]+)\s*(kg|g|gm|grams?|l|litre|liters?)', weight_part)
+            if weight_match:
+                base_weight_value = float(weight_match.group(1))
+                base_weight_unit = weight_match.group(2).lower()
+                # Normalize unit
+                if base_weight_unit in ['g', 'gm', 'gram', 'grams']:
+                    base_weight_unit = 'g'
+                elif base_weight_unit in ['l', 'litre', 'liter', 'liters']:
+                    base_weight_unit = 'L'
+                else:
+                    base_weight_unit = 'kg'
+            else:
+                # Default to 1kg if can't parse
+                base_weight_value = 1.0
+                base_weight_unit = 'kg'
+        
+        # Convert base weight to kg for calculation
+        if base_weight_unit == 'g':
+            base_weight_kg = base_weight_value / 1000
+        elif base_weight_unit == 'L':
+            base_weight_kg = base_weight_value  # 1L ≈ 1kg
+        else:  # kg
+            base_weight_kg = base_weight_value
+        
+        # Convert selected weight to kg
+        if selected_weight_unit == 'g':
+            selected_weight_kg = selected_weight_value / 1000
+        elif selected_weight_unit == 'L':
+            selected_weight_kg = selected_weight_value
+        else:  # kg
+            selected_weight_kg = selected_weight_value
+        
+        # Calculate price per kg first
+        price_per_kg = base_price / base_weight_kg
+        
+        # Calculate price for selected weight
+        calculated_price = price_per_kg * selected_weight_kg
+        
+        # Format price display
+        if selected_weight_unit == 'g':
+            price_display = f"₹{calculated_price:.2f}/{int(selected_weight_value)}g"
+        elif selected_weight_unit == 'L':
+            price_display = f"₹{calculated_price:.2f}/{selected_weight_value}L"
+        else:  # kg
+            if selected_weight_value == 1.0:
+                price_display = f"₹{calculated_price:.2f}/1kg"
+            else:
+                price_display = f"₹{calculated_price:.2f}/{selected_weight_value}kg"
+        
+        return {
+            'price': round(calculated_price, 2),
+            'priceDisplay': price_display,
+            'weight_value': selected_weight_value,
+            'weight_unit': selected_weight_unit
+        }
+    except Exception as e:
+        print(f"Error calculating price: {str(e)}")
+        # Return original price as fallback
+        return {
+            'price': 0.0,
+            'priceDisplay': base_price_str,
+            'weight_value': selected_weight_value,
+            'weight_unit': selected_weight_unit
+        }
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
 def product_detail_view(request, product_id):
     """
+    GET: Get product details, optionally with calculated price for selected weight
+    Query params: weight_value (float), weight_unit ('kg', 'g', 'L')
     PUT: Update a product
     DELETE: Delete a product
     """
@@ -1326,7 +1426,47 @@ def product_detail_view(request, product_id):
     except Product.DoesNotExist:
         return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
     
-    if request.method == 'PUT':
+    if request.method == 'GET':
+        # Get base product data
+        product_data = {
+            'id': product.id,
+            'name': product.name,
+            'description': product.description,
+            'price': product.price,
+            'image': product.image,
+            'category': product.category,
+            'weight_value': float(product.weight_value) if product.weight_value else None,
+            'weight_unit': product.weight_unit,
+            'created_at': product.created_at.isoformat() if product.created_at else None,
+        }
+        
+        # If weight selection is provided, calculate price
+        selected_weight_value = request.query_params.get('weight_value')
+        selected_weight_unit = request.query_params.get('weight_unit', 'kg')
+        
+        if selected_weight_value:
+            try:
+                selected_weight_value = float(selected_weight_value)
+                calculated = calculate_price_for_weight(
+                    product.price,
+                    selected_weight_value,
+                    selected_weight_unit
+                )
+                # Update the main price field to show calculated price
+                product_data['price'] = calculated['priceDisplay']
+                # Also keep original price for reference
+                product_data['original_price'] = product.price
+                # Add calculated price info
+                product_data['calculated_price'] = calculated['price']
+                product_data['calculated_priceDisplay'] = calculated['priceDisplay']
+                product_data['selected_weight_value'] = calculated['weight_value']
+                product_data['selected_weight_unit'] = calculated['weight_unit']
+            except ValueError:
+                pass  # Invalid weight_value, return base product data
+        
+        return Response(product_data, status=status.HTTP_200_OK)
+    
+    elif request.method == 'PUT':
         data = request.data
         product.name = data.get('name', product.name)
         product.description = data.get('description', product.description)

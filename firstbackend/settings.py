@@ -98,6 +98,15 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
+# Expose headers to the frontend
+CORS_EXPOSE_HEADERS = [
+    "content-type",
+    "authorization",
+]
+
+# Cache preflight requests for 1 hour
+CORS_PREFLIGHT_MAX_AGE = 3600
+
 # CSRF Configuration
 CSRF_TRUSTED_ORIGINS = [
     "https://shreshtagro.com",
