@@ -35,6 +35,7 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
     "shreshtagro.com",
     "www.shreshtagro.com",
+    "shreshta-backend.onrender.com",
     "shreshta-backend-final.onrender.com",
 ]
 
@@ -74,15 +75,34 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+# Allow all HTTP methods
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+
 # Allow all headers for axios requests
 CORS_ALLOW_HEADERS = [
-    "*",
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
 ]
 
 # CSRF Configuration
 CSRF_TRUSTED_ORIGINS = [
     "https://shreshtagro.com",
     "https://www.shreshtagro.com",
+    "https://shreshta-backend.onrender.com",
     "https://shreshta-backend-final.onrender.com"
 ]
 
