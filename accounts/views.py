@@ -482,7 +482,7 @@ def create_razorpay_order_view(request):
         return Response({'error': error_msg}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['POST'])
+@api_view(['OPTIONS', 'POST'])
 def verify_payment_and_save_order_view(request):
     """
     Verify Razorpay payment signature and save order to database
@@ -504,7 +504,15 @@ def verify_payment_and_save_order_view(request):
         "username": "user123"
     }
     """
+    # Handle CORS preflight requests
+    if request.method == 'OPTIONS':
+        return Response(status=status.HTTP_200_OK)
+    
     try:
+        print(f"🔔 Payment verification request received")
+        print(f"   Order ID: {request.data.get('razorpay_order_id')}")
+        print(f"   Payment ID: {request.data.get('razorpay_payment_id')}")
+        print(f"   Username: {request.data.get('username')}")
         # Get payment details
         razorpay_order_id = request.data.get('razorpay_order_id')
         razorpay_payment_id = request.data.get('razorpay_payment_id')
@@ -530,10 +538,39 @@ def verify_payment_and_save_order_view(request):
                 body.encode(),
                 hashlib.sha256
             ).hexdigest()
-            return expected_signature == signature
+            is_valid = expected_signature == signature
+            
+            # Also try using Razorpay client verification as fallback
+            if not is_valid:
+                try:
+                    client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+                    params = {
+                        'razorpay_order_id': order_id,
+                        'razorpay_payment_id': payment_id,
+                        'razorpay_signature': signature
+                    }
+                    # Razorpay client verification
+                    client.utility.verify_payment_signature(params)
+                    print(f"✅ Signature verification successful (via Razorpay client)")
+                    is_valid = True
+                except Exception as client_verify_error:
+                    print(f"⚠️ Signature verification failed!")
+                    print(f"   Order ID: {order_id}")
+                    print(f"   Payment ID: {payment_id}")
+                    print(f"   Expected: {expected_signature}")
+                    print(f"   Received: {signature}")
+                    print(f"   Razorpay client verification also failed: {str(client_verify_error)}")
+            else:
+                print(f"✅ Signature verification successful (manual)")
+            
+            return is_valid
         
         if not verify_payment_signature(razorpay_order_id, razorpay_payment_id, razorpay_signature):
-            return Response({'error': 'Payment signature verification failed'}, status=status.HTTP_400_BAD_REQUEST)
+            print(f"❌ Payment signature verification failed - rejecting payment")
+            return Response({
+                'success': False,
+                'error': 'Payment signature verification failed. Please contact support if payment was deducted.'
+            }, status=status.HTTP_400_BAD_REQUEST)
         
         # Extract order details
         cart_items = order_details.get('cart_items', [])
@@ -852,7 +889,13 @@ def verify_payment_and_save_order_view(request):
                 total_price=float(item.get('price', 0)) * item.get('quantity', 1)
             )
         
-        return Response({
+        print(f"✅✅✅ Order saved successfully! ✅✅✅")
+        print(f"   Order Number: {order_number}")
+        print(f"   Order ID: {order.id}")
+        print(f"   Total: ₹{total}")
+        print(f"   Status: {order.status}")
+        
+        response_data = {
             'success': True,
             'message': 'Order saved successfully',
             'order_number': order_number,
@@ -862,12 +905,20 @@ def verify_payment_and_save_order_view(request):
             'awb_code': awb_code,
             'courier_company': courier_company,
             'tracking_url': tracking_url
-        }, status=status.HTTP_201_CREATED)
+        }
+        
+        print(f"📤 Sending success response: {response_data}")
+        return Response(response_data, status=status.HTTP_201_CREATED)
         
     except Exception as e:
         error_msg = f"Failed to save order: {str(e)}"
-        print(f"Order save error: {error_msg}")
-        return Response({'error': error_msg}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        print(f"❌❌❌ Order save error: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        return Response({
+            'success': False,
+            'error': error_msg
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
