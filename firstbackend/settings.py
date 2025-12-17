@@ -31,11 +31,11 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-8z$b1tq1s-@2s#c#lh2x$he7l0
 DEBUG = True
 
 ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
     "shreshtagro.com",
     "www.shreshtagro.com",
     "shreshta-backend-final.onrender.com",
-    "localhost",
-    "127.0.0.1",
 ]
 
 
@@ -73,6 +73,11 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+# Allow all headers for axios requests
+CORS_ALLOW_HEADERS = [
+    "*",
+]
 
 # CSRF Configuration
 CSRF_TRUSTED_ORIGINS = [
