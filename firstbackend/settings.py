@@ -31,11 +31,11 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-8z$b1tq1s-@2s#c#lh2x$he7l0
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'shreshta-backend-final.onrender.com',
-    'shreshtagro.com',
-    'www.shreshtagro.com',
-    'localhost',
-    '127.0.0.1'
+    "shreshtagro.com",
+    "www.shreshtagro.com",
+    "shreshta-backend-final.onrender.com",
+    "localhost",
+    "127.0.0.1",
 ]
 
 
@@ -55,14 +55,15 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',    
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "corsheaders.middleware.CorsMiddleware",  # MUST BE VERY FIRST
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 # CORS Configuration
