@@ -1511,7 +1511,7 @@ def calculate_price_for_weight(base_price_str, selected_weight_value, selected_w
         }
 
 
-@api_view(['GET', 'PUT', 'DELETE'])
+@api_view(['GET', 'PUT', 'DELETE', 'OPTIONS'])
 def product_detail_view(request, product_id):
     """
     GET: Get product details, optionally with calculated price for selected weight
@@ -1519,22 +1519,33 @@ def product_detail_view(request, product_id):
     PUT: Update a product
     DELETE: Delete a product
     """
+    # Handle CORS preflight requests
+    if request.method == 'OPTIONS':
+        return Response(status=status.HTTP_200_OK)
+    
     try:
         product = Product.objects.get(id=product_id)
     except Product.DoesNotExist:
         return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
     
     if request.method == 'GET':
-        # Get base product data
+        # Ensure all fields have default values to prevent frontend errors
+        # Get base product data with safe defaults
+        product_image = product.image or ''
+        # If image is a single string, convert to array format for frontend compatibility
+        # Frontend expects images array, but we store single image
+        images_array = [product_image] if product_image else []
+        
         product_data = {
             'id': product.id,
-            'name': product.name,
-            'description': product.description,
-            'price': product.price,
-            'image': product.image,
-            'category': product.category,
+            'name': product.name or '',
+            'description': product.description or '',
+            'price': product.price or '',
+            'image': product_image,  # Single image (backward compatible)
+            'images': images_array,  # Array format for frontend
+            'category': product.category or '',
             'weight_value': float(product.weight_value) if product.weight_value else None,
-            'weight_unit': product.weight_unit,
+            'weight_unit': product.weight_unit or 'kg',
             'created_at': product.created_at.isoformat() if product.created_at else None,
         }
         
