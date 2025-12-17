@@ -1661,6 +1661,7 @@ def coupons_view(request):
                 'id': coupon.id,
                 'code': coupon.code,
                 'discount_percentage': float(coupon.discount_percentage),
+                'discountPercentage': float(coupon.discount_percentage),  # Also include camelCase for frontend
                 'is_active': coupon.is_active,
                 'created_at': coupon.created_at.isoformat() if coupon.created_at else None,
             }
@@ -1702,6 +1703,7 @@ def coupons_view(request):
             'id': coupon.id,
             'code': coupon.code,
             'discount_percentage': float(coupon.discount_percentage),
+            'discountPercentage': float(coupon.discount_percentage),  # Also include camelCase for frontend
             'is_active': coupon.is_active,
             'created_at': coupon.created_at.isoformat() if coupon.created_at else None,
         },
@@ -1727,6 +1729,7 @@ def coupon_detail_view(request, coupon_id):
                 'id': coupon.id,
                 'code': coupon.code,
                 'discount_percentage': float(coupon.discount_percentage),
+                'discountPercentage': float(coupon.discount_percentage),  # Also include camelCase for frontend
                 'is_active': coupon.is_active,
                 'created_at': coupon.created_at.isoformat() if coupon.created_at else None,
                 'updated_at': coupon.updated_at.isoformat() if coupon.updated_at else None,
@@ -1767,6 +1770,7 @@ def coupon_detail_view(request, coupon_id):
                 'id': coupon.id,
                 'code': coupon.code,
                 'discount_percentage': float(coupon.discount_percentage),
+                'discountPercentage': float(coupon.discount_percentage),  # Also include camelCase for frontend
                 'is_active': coupon.is_active,
                 'created_at': coupon.created_at.isoformat() if coupon.created_at else None,
                 'updated_at': coupon.updated_at.isoformat() if coupon.updated_at else None,
