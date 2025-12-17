@@ -2,8 +2,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
-from .models import UserProfile, Order, OrderItem, Product
-from  rest_framework import status
+from .models import UserProfile, Order, OrderItem, Product, Coupon
+from rest_framework import status
 from django.contrib.auth import authenticate
 from django.conf import settings
 from django.core.cache import cache
@@ -1645,4 +1645,131 @@ def cancel_order_view(request, order_id):
         import traceback
         traceback.print_exc()
         return Response({'success': False, 'error': error_msg}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-#
+
+
+# Coupon Management APIs
+@api_view(['GET', 'POST'])
+def coupons_view(request):
+    """
+    GET: List all active coupons
+    POST: Create a new coupon
+    """
+    if request.method == 'GET':
+        coupons = Coupon.objects.filter(is_active=True).order_by('-created_at')
+        data = [
+            {
+                'id': coupon.id,
+                'code': coupon.code,
+                'discount_percentage': float(coupon.discount_percentage),
+                'is_active': coupon.is_active,
+                'created_at': coupon.created_at.isoformat() if coupon.created_at else None,
+            }
+            for coupon in coupons
+        ]
+        return Response({'coupons': data}, status=status.HTTP_200_OK)
+
+    # POST - create a new coupon
+    code = (request.data.get('code') or '').strip().upper()
+    discount_percentage = request.data.get('discount_percentage')
+    is_active = request.data.get('is_active', True)
+
+    if not code:
+        return Response({'error': 'Coupon code is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        discount_value = float(discount_percentage)
+    except (TypeError, ValueError):
+        return Response({'error': 'discount_percentage must be a number'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if discount_value <= 0 or discount_value > 100:
+        return Response({'error': 'discount_percentage must be between 0 and 100'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if Coupon.objects.filter(code=code).exists():
+        return Response({'error': 'Coupon code already exists'}, status=status.HTTP_400_BAD_REQUEST)
+
+    coupon = Coupon.objects.create(
+        code=code,
+        discount_percentage=discount_value,
+        is_active=bool(is_active),
+    )
+
+    return Response(
+        {
+            'id': coupon.id,
+            'code': coupon.code,
+            'discount_percentage': float(coupon.discount_percentage),
+            'is_active': coupon.is_active,
+            'created_at': coupon.created_at.isoformat() if coupon.created_at else None,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def coupon_detail_view(request, coupon_id):
+    """
+    GET: Retrieve a single coupon
+    PUT: Update an existing coupon
+    DELETE: Soft-delete (deactivate) a coupon
+    """
+    try:
+        coupon = Coupon.objects.get(id=coupon_id)
+    except Coupon.DoesNotExist:
+        return Response({'error': 'Coupon not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        return Response(
+            {
+                'id': coupon.id,
+                'code': coupon.code,
+                'discount_percentage': float(coupon.discount_percentage),
+                'is_active': coupon.is_active,
+                'created_at': coupon.created_at.isoformat() if coupon.created_at else None,
+                'updated_at': coupon.updated_at.isoformat() if coupon.updated_at else None,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    if request.method == 'PUT':
+        code = request.data.get('code')
+        discount_percentage = request.data.get('discount_percentage')
+        is_active = request.data.get('is_active')
+
+        if code is not None:
+            code_clean = code.strip().upper()
+            if not code_clean:
+                return Response({'error': 'Coupon code cannot be empty'}, status=status.HTTP_400_BAD_REQUEST)
+            if Coupon.objects.filter(code=code_clean).exclude(id=coupon.id).exists():
+                return Response({'error': 'Another coupon with this code already exists'}, status=status.HTTP_400_BAD_REQUEST)
+            coupon.code = code_clean
+
+        if discount_percentage is not None:
+            try:
+                discount_value = float(discount_percentage)
+            except (TypeError, ValueError):
+                return Response({'error': 'discount_percentage must be a number'}, status=status.HTTP_400_BAD_REQUEST)
+            if discount_value <= 0 or discount_value > 100:
+                return Response({'error': 'discount_percentage must be between 0 and 100'}, status=status.HTTP_400_BAD_REQUEST)
+            coupon.discount_percentage = discount_value
+
+        if is_active is not None:
+            coupon.is_active = bool(is_active)
+
+        coupon.save()
+
+        return Response(
+            {
+                'id': coupon.id,
+                'code': coupon.code,
+                'discount_percentage': float(coupon.discount_percentage),
+                'is_active': coupon.is_active,
+                'created_at': coupon.created_at.isoformat() if coupon.created_at else None,
+                'updated_at': coupon.updated_at.isoformat() if coupon.updated_at else None,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    # DELETE - soft delete by marking inactive
+    coupon.is_active = False
+    coupon.save()
+    return Response({'message': 'Coupon deactivated successfully'}, status=status.HTTP_200_OK)

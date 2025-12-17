@@ -15,4 +15,7 @@ urlpatterns = [
     path('orders/<int:order_id>/cancel/', views.cancel_order_view, name='cancel_order'),
     path('products/', views.products_view, name='products'),
     path('products/<int:product_id>/', views.product_detail_view, name='product_detail'),
+    # Coupon management
+    path('coupons/', views.coupons_view, name='coupons'),
+    path('coupons/<int:coupon_id>/', views.coupon_detail_view, name='coupon_detail'),
 ]

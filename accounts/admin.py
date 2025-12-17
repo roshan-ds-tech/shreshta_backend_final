@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from .models import UserProfile, Order, OrderItem, Product
+from .models import UserProfile, Order, OrderItem, Product, Coupon
 
 # Inline profile inside the User admin page
 class UserProfileInline(admin.StackedInline):
@@ -76,3 +76,10 @@ class ProductAdmin(admin.ModelAdmin):
     list_filter = ('category', 'created_at')
     search_fields = ('name', 'description', 'category')
     readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(Coupon)
+class CouponAdmin(admin.ModelAdmin):
+    list_display = ('code', 'discount_percentage', 'is_active', 'created_at')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('code',)
