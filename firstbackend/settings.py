@@ -112,7 +112,9 @@ CSRF_TRUSTED_ORIGINS = [
     "https://shreshtagro.com",
     "https://www.shreshtagro.com",
     "https://shreshta-backend.onrender.com",
-    "https://shreshta-backend-final.onrender.com"
+    "https://shreshta-backend-final.onrender.com",
+    "http://localhost:3000",  # For local development
+    "http://127.0.0.1:3000",  # For local development
 ]
 
 # Cookie settings for secure cookies (HTTPS)
